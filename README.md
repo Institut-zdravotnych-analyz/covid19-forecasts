@@ -1,5 +1,6 @@
 # Forecasts Covid19 cases and hospitalizations
 Forecasts for COVID-19
+
 An implementation of COFFEE (COVID-19 Forecasts using Fast Evaluations and Estimation).
 
 By Lauren Castro, Geoffrey Fairchild, Isaac Michaud, and Dave Osthus @ Los Alamos National Laboratory.
