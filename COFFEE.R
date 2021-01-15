@@ -113,7 +113,7 @@ hospitalizations <- function(n_admissions, dates, r_los, n_sim = 10) {
   out <- vector(n_sim, mode = "list")
   
   for (j in seq_len(n_sim)) {
-    los <- r_los(n)
+    los <- r_los(n)+1
     list_dates_beds <- lapply(seq_len(n),
                               function(i) seq(admission_dates[i],
                                               length.out = los[i],
@@ -133,8 +133,8 @@ hospitalizations <- function(n_admissions, dates, r_los, n_sim = 10) {
 }
 
 # Simulate distribution of LOS, based on estimated empirical fit
-los_h <- distcrete::distcrete("weibull", shape = 1.3, scale = 10.339, w = 0, interval = 1)
-los_v <- distcrete::distcrete("weibull", shape = 1.32, scale = 10.984, w = 0, interval = 1)
+los_h <- distcrete::distcrete("weibull", shape = 1.3, scale = 9.339, w = 0, interval = 1)
+los_v <- distcrete::distcrete("weibull", shape = 1.32, scale = 9.984, w = 0, interval = 1)
 
 ####
 
