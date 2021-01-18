@@ -160,14 +160,6 @@ covid_data$AgPosit[is.na(covid_data$AgPosit)]<-0
 covid_data$newcases<-covid_data$newcases+covid_data$AgPosit
 covid_data<-covid_data%>%mutate(positive=rev(cumsum(rev(newcases))))
 
-# Generate k_t, tau_c
-covid_data$k_t=(covid_data$positive/lead(covid_data$positive))-1
-covid_data[nrow(covid_data), "k_t"]<-0
-tau_c=0.95*min(covid_data$k_t[covid_data$k_t > 0])
-# Generate k_t_star
-covid_data$k_t_star[covid_data$k_t > tau_c & covid_data$k_t < 1-tau_c]<-logit(covid_data$k_t[covid_data$k_t > tau_c & covid_data$k_t < 1-tau_c])
-covid_data$k_t_star[covid_data$k_t <= tau_c]<-logit(tau_c)
-covid_data$k_t_star[covid_data$k_t >= 1-tau_c]<-logit(1-tau_c)
 # Generate day of week
 covid_data$wday=as.POSIXlt(covid_data$date)$wday
 covid_data$day <- weekdays(as.Date(covid_data$date))
@@ -176,50 +168,62 @@ covid_data <- fastDummies::dummy_cols(covid_data, select_columns = "day")
 # Linear trend
 covid_data$n <- rev(seq.int(nrow(covid_data)))
 
-# Subset last 42 observations
-last42 <-head(subset(covid_data, select=c("date", "positive", "newcases", "k_t", "k_t_star", "n", "day_Friday", "day_Monday", "day_Saturday",
-                                          "day_Sunday", "day_Thursday", "day_Tuesday", "day_Wednesday")), 42)
-
 ####
 # Outlier detection
 # A linear trend with DOW effects is first estimated over the last 42 days of the data
 # Observations falling outside of 3*mean of the Cook's distance are labeled as outliers and adjusted 
 # to the mean number of cases at days t-7, t+7, t-14. If the any of the indexes is non-existent, the mean is calculated from the available ones
-mod <- lm(newcases ~ n + day_Monday + day_Tuesday + day_Wednesday + day_Thursday + day_Friday + day_Saturday, data=last42)
-last42$cookd <- cooks.distance(mod)
+mod <- glm.nb(newcases ~ n + day_Monday + day_Tuesday + day_Wednesday + day_Thursday + day_Friday + day_Saturday, data=last42[1:42])
+covid_data$cookd<-NA
+covid_data$cookd[1:42] <- cooks.distance(mod)
 
-last42$outlier<-0
-last42$index<-seq(1,nrow(last42))
-last42$outlier[last42$cookd>3*mean(last42$cookd, na.rm=T)]=1
+covid_data$outlier<-0
+covid_data$index<-seq(1,nrow(covid_data))
+covid_data$outlier[covid_data$cookd>3*mean(covid_data$cookd, na.rm=T)]=1
 
 p_outliers<-
-  last42 %>%
-  mutate(color = if_else(last42$outlier==1, "Outlier", "Normal")) %>%
+  covid_data[1:42,] %>%
+  mutate(color = if_else(covid_data$outlier[1:42]==1, "Outlier", "Normal")) %>%
   ggplot()+geom_point(aes(x=date, y=cookd, fill=color), shape=21, colour="black", size=3, stroke=0.2)+
   geom_text_repel(aes(label = ifelse(outlier==1,format(date, format = "%b %d"), ""), x=date, y=cookd))+
   scale_fill_manual(values = c("Outlier" = "hotpink3", "Normal" = "gray"))+
-  geom_hline(yintercept=3*mean(last42$cookd, na.rm=T), linetype="dashed")+
+  geom_hline(yintercept=3*mean(covid_data$cookd[1:42], na.rm=T), linetype="dashed")+
   xlab("Date")+ylab("Cook's distance")+theme_bw()+theme(legend.position="none")
 
-for (i in which(last42$outlier==1)) {
-  last42[i, "adjustedcases"]<-round(mean(c(
-    if (length(last42[last42$index==i+7 &  last42$outlier==0, "newcases"])>0) {
-      last42[last42$index==i+7 &  last42$outlier==0, "newcases"]},
-    if (length(last42[last42$index==i-7 &  last42$outlier==0, "newcases"])>0) {
-      last42[last42$index==i-7 &  last42$outlier==0, "newcases"]},
-    if (length(last42[last42$index==i+14 &  last42$outlier==0, "newcases"])>0) {
-      last42[last42$index==i+14 &  last42$outlier==0, "newcases"]}
+for (i in which(covid_data$outlier==1)) {
+  covid_data[i, "adjustedcases"]<-round(mean(c(
+    if (length(covid_data[covid_data$index==i+7 &  covid_data$outlier==0, "newcases"])>0) {
+      covid_data[covid_data$index==i+7 &  covid_data$outlier==0, "newcases"]},
+    if (length(covid_data[covid_data$index==i-7 &  covid_data$outlier==0, "newcases"])>0) {
+      covid_data[covid_data$index==i-7 &  covid_data$outlier==0, "newcases"]},
+    if (length(covid_data[covid_data$index==i+14 &  covid_data$outlier==0, "newcases"])>0) {
+      covid_data[covid_data$index==i+14 &  covid_data$outlier==0, "newcases"]},
+    if (length(covid_data[covid_data$index==i-14 &  covid_data$outlier==0, "newcases"])>0) {
+      covid_data[covid_data$index==i-14 &  covid_data$outlier==0, "newcases"]}
   )))
   
 }
 
-for (i in which(last42$outlier==1)) {
-  last42[i, "positive"]<-last42[i, "positive"]-(last42[i, "newcases"]-last42[i, "adjustedcases"])
-  last42[1:(i-1), "positive"]<-last42[1:(i-1), "positive"]-(last42[i, "newcases"]-last42[i, "adjustedcases"])
+for (i in rev(which(covid_data$outlier==1))) {
+  covid_data[i, "positive"]<-covid_data[i, "positive"]-(covid_data[i, "newcases"]-covid_data[i, "adjustedcases"])
+  covid_data[1:(i-1), "positive"]<-covid_data[1:(i-1), "positive"]-(covid_data[i, "newcases"]-covid_data[i, "adjustedcases"])
 }
-last42[last42$outlier==1, "newcases"]<-last42[last42$outlier==1, "adjustedcases"]
+covid_data[covid_data$outlier==1, "newcases"]<-covid_data[covid_data$outlier==1, "adjustedcases"]
 
 #####
+# Generate k_t, tau_c
+covid_data$k_t=(covid_data$positive/lead(covid_data$positive))-1
+covid_data[nrow(covid_data), "k_t"]<-0
+tau_c=0.95*min(covid_data$k_t[covid_data$k_t > 0])
+# Generate k_t_star
+covid_data$k_t_star[covid_data$k_t > tau_c & covid_data$k_t < 1-tau_c]<-logit(covid_data$k_t[covid_data$k_t > tau_c & covid_data$k_t < 1-tau_c])
+covid_data$k_t_star[covid_data$k_t <= tau_c]<-logit(tau_c)
+covid_data$k_t_star[covid_data$k_t >= 1-tau_c]<-logit(1-tau_c)
+
+# Subset last 42 observations
+last42 <-head(subset(covid_data, select=c("date", "positive", "newcases", "k_t", "k_t_star", "n", "day_Friday", "day_Monday", "day_Saturday",
+                                          "day_Sunday", "day_Thursday", "day_Tuesday", "day_Wednesday")), 42)
+
 # Subset training data
 training <-subset(last42[15:42,], select=c("date", "positive", "newcases", "k_t", "k_t_star", "n", "day_Friday", "day_Monday", "day_Saturday",
                                            "day_Sunday", "day_Thursday", "day_Tuesday", "day_Wednesday"))
