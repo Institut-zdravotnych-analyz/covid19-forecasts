@@ -173,7 +173,7 @@ covid_data$n <- rev(seq.int(nrow(covid_data)))
 # A linear trend with DOW effects is first estimated over the last 42 days of the data
 # Observations falling outside of 3*mean of the Cook's distance are labeled as outliers and adjusted 
 # to the mean number of cases at days t-7, t+7, t-14. If the any of the indexes is non-existent, the mean is calculated from the available ones
-mod <- glm.nb(newcases ~ n + day_Monday + day_Tuesday + day_Wednesday + day_Thursday + day_Friday + day_Saturday, data=last42[1:42])
+mod <- glm.nb(newcases ~ n + day_Monday + day_Tuesday + day_Wednesday + day_Thursday + day_Friday + day_Saturday, data=covid_data[1:42,])
 covid_data$cookd<-NA
 covid_data$cookd[1:42] <- cooks.distance(mod)
 
