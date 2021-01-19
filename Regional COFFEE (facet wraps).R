@@ -458,6 +458,7 @@ for (reg in region) {
     ylab(expression(hat(kappa)[t]^{"*"}))+xlab("Date")+theme_bw()
   
   forecast$k<- seq(K, length.out=nrow(forecast), by=-1)
+  median_k_t<-median(as.vector(new_training$k_t_star[1:7]))
   
   # Initialize vectors for forecast
   d_s0_forecast=runif(1,0.4,0.7)*pop
