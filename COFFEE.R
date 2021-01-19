@@ -400,7 +400,8 @@ foreach (d = c("Monday","Tuesday","Wednesday","Thursday","Friday","Saturday","Su
 }
 
 forecast$k_t_constant_dow<-forecast$k_t_constant_dow-(mean(forecast$k_t_constant_dow)-mean(forecast$k_t_constant))
-
+median_k_t<-median(as.vector(new_training$k_t_star_pred[1:7]))
+                              
 # Plot
 p_k_t_forecast <- ggplot() +
   geom_point(data=new_training, aes(x=date, y=k_t_star), shape=21, colour="black", fill="hotpink3", size=3, stroke=0.2)+
